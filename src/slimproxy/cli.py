@@ -225,14 +225,12 @@ def run(
 
     plugins: list[str] = []
     if allow_ips:
-        plugins.append(
-            "proxy.plugin.filter_by_client_ip.FilterByClientIpPlugin"
-        )
+        plugins.append("slimproxy.plugins.FilterByClientIpPlugin")
         proxy_args.extend(
             [
-                "--filtered-client-ips",
+                "--slimproxy-filtered-client-ips",
                 allow_ips,
-                "--filtered-client-ips-mode",
+                "--slimproxy-filtered-client-ips-mode",
                 "whitelist",
             ]
         )
