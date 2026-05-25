@@ -104,11 +104,12 @@ def run(
 ) -> None:
     """Start the forward proxy server."""
     if basic_auth is None and not _is_localhost(hostname):
-        typer.echo(
+        typer.secho(
             "WARNING: No authentication configured. The proxy is accessible "
             f"from {hostname!r} without authentication. "
             "Consider using --basic-auth.",
             err=True,
+            fg=typer.colors.YELLOW,
         )
         if _is_interactive():
             if typer.confirm("Would you like to configure authentication now?"):
@@ -117,9 +118,11 @@ def run(
                     "Password:", hide_input=True, confirmation_prompt=True
                 )
                 if not username or not password:
-                    typer.echo(
+                    typer.secho(
                         "Error: username and password cannot be empty.",
                         err=True,
+                        fg=typer.colors.RED,
+                        bold=True,
                     )
                     raise typer.Exit(code=1)
                 basic_auth = f"{username}:{password}"
@@ -163,9 +166,10 @@ def run(
             ensure_firewall_rule(port)
             firewall_active = True
         else:
-            typer.echo(
+            typer.secho(
                 "--firewall-rule is only supported on Windows, ignoring.",
                 err=True,
+                fg=typer.colors.YELLOW,
             )
 
     if (
@@ -173,30 +177,39 @@ def run(
         and not _is_localhost(hostname)
         and not firewall_rule
     ):
-        typer.echo(
+        typer.secho(
             "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
             f"port {port}. "
             "Use --firewall-rule to add a rule automatically.",
             err=True,
+            fg=typer.colors.YELLOW,
         )
 
     try:
         with Proxy(input_args=proxy_args) as proxy:
-            typer.echo(
+            typer.secho(
                 f"Proxy listening on {proxy.flags.hostname}:{proxy.flags.port}",
+                fg=typer.colors.GREEN,
+                bold=True,
             )
             if basic_auth:
-                typer.echo("  Auth: enabled")
+                typer.secho("  Auth: enabled", fg=typer.colors.CYAN)
             if allow_ips:
-                typer.echo(f"  Client IPs allowed: {allow_ips}")
+                typer.secho(
+                    f"  Client IPs allowed: {allow_ips}",
+                    fg=typer.colors.CYAN,
+                )
             if allow_dests:
-                typer.echo(f"  Destinations allowed: {allow_dests}")
+                typer.secho(
+                    f"  Destinations allowed: {allow_dests}",
+                    fg=typer.colors.CYAN,
+                )
             typer.echo("Press Ctrl+C to stop")
             sleep_loop(proxy)
     except KeyboardInterrupt:
-        typer.echo("\nShutting down...")
+        typer.secho("\nShutting down...", fg=typer.colors.YELLOW)
     except Exception as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        typer.secho(f"Error: {exc}", err=True, fg=typer.colors.RED, bold=True)
         raise typer.Exit(code=1)
     finally:
         if firewall_active:
@@ -217,12 +230,19 @@ def check(
 ) -> None:
     """Check if SSL inspection is active for given targets."""
     cafile = ssl.get_default_verify_paths().openssl_cafile
-    typer.echo(f"Python {sys.version}")
-    typer.echo(f"Certificate store: {cafile or '(OS native)'}")
+    typer.secho(f"Python {sys.version}", fg=typer.colors.BLUE, bold=True)
+    typer.secho(
+        f"Certificate store: {cafile or '(OS native)'}",
+        fg=typer.colors.CYAN,
+    )
     typer.echo()
 
     for host in targets:
-        typer.echo(check_target(host))
+        result = check_target(host)
+        if "ERROR" in result:
+            typer.secho(result, err=True, fg=typer.colors.RED)
+        else:
+            typer.echo(result)
 
     typer.echo()
     typer.echo(

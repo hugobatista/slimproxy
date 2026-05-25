@@ -34,6 +34,15 @@ class TestCheckCommand:
         assert mock_check.call_count == 1
         assert mock_check.call_args[0][0] == "custom.example.com"
 
+    def test_with_error_result(self):
+        val = "bad.example.com \u2192 ERROR: Connection refused"
+        with patch("slimproxy.cli.check_target") as mock_check:
+            mock_check.return_value = val
+            result = runner.invoke(app, ["check", "bad.example.com"])
+        assert result.exit_code == 0
+        assert "ERROR" in _strip_ansi(result.stderr)
+        assert "Connection refused" in _strip_ansi(result.stderr)
+
 
 class TestRunCommand:
     def test_help_succeeds(self):
@@ -65,9 +74,10 @@ class TestRunCommand:
                 "ERROR",
             ],
         )
+        clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
-        assert "Proxy listening" in result.stdout
-        assert "Shutting down" in result.stdout
+        assert "Proxy listening" in clean
+        assert "Shutting down" in clean
 
     @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
     @patch("slimproxy.cli.Proxy")
@@ -91,10 +101,11 @@ class TestRunCommand:
                 "ERROR",
             ],
         )
+        clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
-        assert "Auth: enabled" in result.stdout
-        assert "Client IPs allowed" in result.stdout
-        assert "Destinations allowed" in result.stdout
+        assert "Auth: enabled" in clean
+        assert "Client IPs allowed" in clean
+        assert "Destinations allowed" in clean
 
     def test_firewall_rule_not_in_help_on_linux(self):
         result = runner.invoke(app, ["run", "--help"])
@@ -123,7 +134,7 @@ class TestRunCommand:
                 )
 
         assert result.exit_code == 0
-        assert "only supported on Windows" in result.stderr
+        assert "only supported on Windows" in _strip_ansi(result.stderr)
 
     @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
     @patch("slimproxy.cli.Proxy")
@@ -172,9 +183,10 @@ class TestRunCommand:
                         ],
                     )
 
+        clean = _strip_ansi(result.stderr)
         assert result.exit_code == 0
-        assert "WARNING" in result.stderr
-        assert "firewall" in result.stderr.lower()
+        assert "WARNING" in clean
+        assert "firewall" in clean.lower()
 
     def test_windows_with_firewall_no_warning(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
@@ -247,7 +259,7 @@ class TestRunCommand:
             ],
         )
         assert result.exit_code == 1
-        assert "Bind failed" in result.stderr
+        assert "Bind failed" in _strip_ansi(result.stderr)
 
     def test_no_warning_on_localhost(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
@@ -310,10 +322,11 @@ class TestRunCommand:
                     ["run", "--port", "13128", "--log-level", "ERROR"],
                 )
 
+        clean = _strip_ansi(result.stderr)
         assert result.exit_code == 0
-        assert "WARNING" in result.stderr
-        assert "No authentication configured" in result.stderr
-        assert "0.0.0.0" in result.stderr
+        assert "WARNING" in clean
+        assert "No authentication configured" in clean
+        assert "0.0.0.0" in clean
 
     def test_interactive_auth_configures(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
@@ -345,7 +358,7 @@ class TestRunCommand:
                             )
 
         assert result.exit_code == 0
-        assert "Auth: enabled" in result.stdout
+        assert "Auth: enabled" in _strip_ansi(result.stdout)
 
     def test_interactive_auth_declined(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
@@ -382,7 +395,7 @@ class TestRunCommand:
                     )
 
         assert result.exit_code == 1
-        assert "cannot be empty" in result.stderr
+        assert "cannot be empty" in _strip_ansi(result.stderr)
 
 
 class TestVersion:
