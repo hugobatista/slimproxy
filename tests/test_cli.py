@@ -155,7 +155,9 @@ class TestRunCommand:
                     mock_instance = MagicMock()
                     mock_instance.flags.hostname = "0.0.0.0"
                     mock_instance.flags.port = "13128"
-                    mock_proxy.return_value.__enter__.return_value = mock_instance
+                    mock_proxy.return_value.__enter__.return_value = (
+                        mock_instance
+                    )
 
                     result = runner.invoke(
                         app,
@@ -207,7 +209,9 @@ class TestRunCommand:
                     mock_instance = MagicMock()
                     mock_instance.flags.hostname = "127.0.0.1"
                     mock_instance.flags.port = "13128"
-                    mock_proxy.return_value.__enter__.return_value = mock_instance
+                    mock_proxy.return_value.__enter__.return_value = (
+                        mock_instance
+                    )
 
                     result = runner.invoke(
                         app,

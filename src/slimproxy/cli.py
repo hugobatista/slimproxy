@@ -141,7 +141,11 @@ def run(
                 err=True,
             )
 
-    if sys.platform == "win32" and not _is_localhost(hostname) and not firewall_rule:
+    if (
+        sys.platform == "win32"
+        and not _is_localhost(hostname)
+        and not firewall_rule
+    ):
         typer.echo(
             "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
             f"port {port}. "
