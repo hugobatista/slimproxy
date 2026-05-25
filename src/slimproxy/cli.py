@@ -6,6 +6,9 @@ from proxy import Proxy
 from proxy.proxy import sleep_loop
 
 from slimproxy.check import check_target
+from slimproxy.firewall import ensure_firewall_rule, remove_firewall_rule
+
+_firewall_hidden = sys.platform != "win32"
 
 app = typer.Typer(
     name="slimproxy",
@@ -54,6 +57,12 @@ def run(
         "--timeout",
         help="Connection timeout in seconds",
     ),
+    firewall_rule: bool = typer.Option(
+        False,
+        "--firewall-rule",
+        help="Add Windows Firewall rule for the proxy port (requires admin)",
+        hidden=_firewall_hidden,
+    ),
 ) -> None:
     """Start the forward proxy server."""
     proxy_args: list[str] = [
@@ -89,6 +98,17 @@ def run(
     if plugins:
         proxy_args.extend(["--plugins", ",".join(plugins)])
 
+    firewall_active = False
+    if firewall_rule:
+        if sys.platform == "win32":
+            ensure_firewall_rule(port)
+            firewall_active = True
+        else:
+            typer.echo(
+                "--firewall-rule is only supported on Windows, ignoring.",
+                err=True,
+            )
+
     try:
         with Proxy(input_args=proxy_args) as proxy:
             typer.echo(
@@ -107,6 +127,9 @@ def run(
     except Exception as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
+    finally:
+        if firewall_active:
+            remove_firewall_rule(port)
 
 
 @app.command()

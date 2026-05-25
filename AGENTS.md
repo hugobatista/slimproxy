@@ -34,11 +34,14 @@ uv build --no-dev                      # build wheel
 | `src/slimproxy/cli.py` | Typer CLI — `run` command starts Proxy, `check` command tests TLS |
 | `src/slimproxy/plugins.py` | `FilterByDestPlugin` (proxy.py `HttpProxyBasePlugin`) for dest allowlisting |
 | `src/slimproxy/check.py` | TLS handshake helper for SSL inspection detection |
+| `src/slimproxy/firewall.py` | Windows Firewall rule helpers (netsh + UAC elevation) |
 | `tests/test_cli.py` | CLI tests via `typer.testing.CliRunner` |
 | `tests/test_plugins.py` | Plugin unit tests |
 | `tests/test_check.py` | `check_target` unit tests |
+| `tests/test_firewall.py` | Firewall helper unit tests |
 
 - `run` uses `proxy.py`'s built-in `FilterByClientIpPlugin` for IP allowlisting and `--basic-auth` for auth. Only destination filtering is custom.
+- `run --firewall-rule` (Windows) auto-adds a firewall rule; UAC elevation via `ctypes.windll.shell32`.
 - Tests mock `proxy.Proxy` and network calls; no integration or Docker tests exist.
 
 ## Publishing

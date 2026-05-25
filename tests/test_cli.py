@@ -87,6 +87,59 @@ class TestRunCommand:
         assert "Client IPs allowed" in result.stdout
         assert "Destinations allowed" in result.stdout
 
+    def test_firewall_rule_not_in_help_on_linux(self):
+        result = runner.invoke(app, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--firewall-rule" not in result.stdout
+
+    def test_firewall_rule_ignored_on_non_windows(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                mock_instance = MagicMock()
+                mock_instance.flags.hostname = "127.0.0.1"
+                mock_instance.flags.port = "13128"
+                mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                result = runner.invoke(
+                    app,
+                    [
+                        "run",
+                        "--port",
+                        "13128",
+                        "--firewall-rule",
+                        "--log-level",
+                        "ERROR",
+                    ],
+                )
+
+        assert result.exit_code == 0
+        assert "only supported on Windows" in result.stderr
+
+    @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
+    @patch("slimproxy.cli.Proxy")
+    def test_firewall_rule_on_windows(self, mock_proxy, mock_sleep):
+        mock_instance = MagicMock()
+        mock_instance.flags.hostname = "0.0.0.0"
+        mock_instance.flags.port = "3128"
+        mock_proxy.return_value.__enter__.return_value = mock_instance
+
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.ensure_firewall_rule") as mock_ensure:
+                with patch("slimproxy.cli.remove_firewall_rule") as mock_remove:
+                    result = runner.invoke(
+                        app,
+                        [
+                            "run",
+                            "--firewall-rule",
+                            "--log-level",
+                            "ERROR",
+                        ],
+                    )
+
+        assert result.exit_code == 0
+        mock_ensure.assert_called_once_with(3128)
+        mock_remove.assert_called_once_with(3128)
+
     @patch("slimproxy.cli.Proxy")
     def test_error_handling(self, mock_proxy):
         mock_proxy.return_value.__enter__.side_effect = RuntimeError(

@@ -80,6 +80,7 @@ Connects to each target over TLS and prints the certificate issuer. If the issue
 | `--allow-dests` | *(none)* | Comma-separated upstream hosts (e.g. `api.opencode.ai`) |
 | `--log-level` | `INFO` | Log level |
 | `--timeout` | `10` | Connection timeout in seconds |
+| `--firewall-rule` | *(off)* | Add Windows Firewall inbound rule for the proxy port (Windows only, requires admin) |
 
 ## Security
 
@@ -90,6 +91,16 @@ All three filters are optional and independent:
 - **Dest allowlist**: Upstream hosts not in the list are rejected with `403`
 
 The proxy speaks vanilla HTTP CONNECT — no TLS interception, no decryption. The end-to-end TLS handshake happens between the client and the target server.
+
+### Windows Firewall
+
+On Windows, pass `--firewall-rule` to auto-add an inbound firewall rule for the proxy port:
+
+```bash
+slimproxy run --port 3128 --firewall-rule
+```
+
+If not running as Administrator, a UAC prompt will appear to elevate. The rule is removed when the proxy stops. On other platforms the flag is accepted but ignored.
 
 ## Docker
 
