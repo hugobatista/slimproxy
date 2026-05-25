@@ -1,10 +1,16 @@
+import re
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
 from slimproxy.cli import app
 
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    return ANSI_RE.sub("", text)
 
 
 class TestCheckCommand:
@@ -30,11 +36,12 @@ class TestCheckCommand:
 class TestRunCommand:
     def test_help_succeeds(self):
         result = runner.invoke(app, ["run", "--help"])
+        clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
-        assert "--port" in result.stdout
-        assert "--basic-auth" in result.stdout
-        assert "--allow-ips" in result.stdout
-        assert "--allow-dests" in result.stdout
+        assert "--port" in clean
+        assert "--basic-auth" in clean
+        assert "--allow-ips" in clean
+        assert "--allow-dests" in clean
 
     @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
     @patch("slimproxy.cli.Proxy")
@@ -89,8 +96,9 @@ class TestRunCommand:
 
     def test_firewall_rule_not_in_help_on_linux(self):
         result = runner.invoke(app, ["run", "--help"])
+        clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
-        assert "--firewall-rule" not in result.stdout
+        assert "--firewall-rule" not in clean
 
     def test_firewall_rule_ignored_on_non_windows(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
