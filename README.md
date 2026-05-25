@@ -93,15 +93,16 @@ Connects to each target over TLS and prints the certificate issuer. If the issue
 | `--hostname` | `0.0.0.0` | Address to bind to |
 | `--port` | `3128` | Listen port |
 | `--basic-auth` | *(none)* | Enable Basic auth (`user:password` format) |
-| `--allow-ips` | *(none)* | Comma-separated client CIDRs (e.g. `192.168.1.0/24`) |
-| `--allow-dests` | *(none)* | Comma-separated upstream hosts (e.g. `api.opencode.ai`) |
+| `--allow-ips` | *(none)* | Comma-separated client CIDRs (e.g. `192.168.1.0/24`). When omitted, all IPs are allowed. |
+| `--allow-dests` | *(none)* | Comma-separated upstream hosts (e.g. `api.opencode.ai`). When omitted, all destinations are allowed. |
 | `--log-level` | `INFO` | Log level |
 | `--timeout` | `10` | Connection timeout in seconds |
 | `--firewall-rule` | *(off)* | Add Windows Firewall inbound rule for the proxy port (Windows only, requires admin) |
 
 ## Security
 
-All three filters are optional and independent:
+All three filters are optional, independent, and disabled by default — when a filter is
+omitted, the corresponding access is unrestricted:
 
 - **IP allowlist**: Clients outside the specified CIDR ranges are rejected with `418`
 - **Basic auth**: Password checked against `--basic-auth` value on every CONNECT request

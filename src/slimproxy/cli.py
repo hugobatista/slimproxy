@@ -19,30 +19,34 @@ _firewall_hidden = sys.platform != "win32"
 
 _LOCALHOST_HOSTNAMES = frozenset({"127.0.0.1", "::1", "localhost"})
 
-_run_epilog = "\n\n".join([
-    "",
-    "Examples:",
-    "slimproxy run",
-    "slimproxy run --basic-auth user:pass --allow-ips 192.168.1.0/24",
-    "slimproxy run --allow-dests api.opencode.ai",
-    "slimproxy run --port 8888 --log-level DEBUG",
-    "slimproxy run --hostname 127.0.0.1 --port 8888",
-    "slimproxy run --basic-auth user:pass --allow-ips 10.0.0.0/8"
-    " --allow-dests api.opencode.ai",
-])
+_run_epilog = "\n\n".join(
+    [
+        "",
+        "Examples:",
+        "slimproxy run",
+        "slimproxy run --basic-auth user:pass --allow-ips 192.168.1.0/24",
+        "slimproxy run --allow-dests api.opencode.ai",
+        "slimproxy run --port 8888 --log-level DEBUG",
+        "slimproxy run --hostname 127.0.0.1 --port 8888",
+        "slimproxy run --basic-auth user:pass --allow-ips 10.0.0.0/8"
+        " --allow-dests api.opencode.ai",
+    ]
+)
 if sys.platform == "win32":
     _run_epilog += "\n\n" + (
         "slimproxy run --firewall-rule --allow-ips 192.168.100.0/24"
         " --basic-auth myuser:mypassword"
     )
 
-_check_epilog = "\n\n".join([
-    "",
-    "Examples:",
-    "slimproxy check api.opencode.ai",
-    "slimproxy check api.opencode.ai api.github.com models.openai.com",
-    "slimproxy check google.com",
-])
+_check_epilog = "\n\n".join(
+    [
+        "",
+        "Examples:",
+        "slimproxy check api.opencode.ai",
+        "slimproxy check api.opencode.ai api.github.com models.openai.com",
+        "slimproxy check google.com",
+    ]
+)
 
 
 def _is_localhost(hostname: str) -> bool:
