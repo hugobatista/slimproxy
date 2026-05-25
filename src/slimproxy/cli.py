@@ -1,4 +1,5 @@
 import importlib.metadata
+import socket
 import ssl
 import sys
 
@@ -55,6 +56,30 @@ def _is_localhost(hostname: str) -> bool:
 
 def _is_interactive() -> bool:
     return sys.stdin.isatty()
+
+
+def _is_bind_all(hostname: str) -> bool:
+    return hostname in ("0.0.0.0", "::")
+
+
+def _get_listen_addresses(hostname: str) -> list[str]:
+    if not _is_bind_all(hostname):
+        return [hostname]
+    addrs: set[str] = set()
+    try:
+        _, _, ips = socket.gethostbyname_ex(socket.gethostname())
+        addrs.update(ip for ip in ips if not ip.startswith("127."))
+    except OSError:
+        pass
+    addrs.add("127.0.0.1")
+    return sorted(addrs)
+
+
+def _format_listen_url(addr: str, port: int, auth: str | None) -> str:
+    if auth is None:
+        return f"http://{addr}:{port}"
+    user = auth.split(":", 1)[0]
+    return f"http://{user}:****@{addr}:{port}"
 
 
 app = typer.Typer(
@@ -219,11 +244,9 @@ def run(
 
     try:
         with Proxy(input_args=proxy_args) as proxy:
-            typer.secho(
-                f"Proxy listening on {proxy.flags.hostname}:{proxy.flags.port}",
-                fg=typer.colors.GREEN,
-                bold=True,
-            )
+            typer.secho("Proxy listening on:", fg=typer.colors.GREEN, bold=True)
+            for addr in _get_listen_addresses(hostname):
+                typer.echo(f"  {_format_listen_url(addr, port, basic_auth)}")
             if basic_auth:
                 typer.secho("  Auth: enabled", fg=typer.colors.CYAN)
             if firewall_active:

@@ -5,7 +5,14 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from slimproxy.cli import _is_interactive, _is_localhost, app
+from slimproxy.cli import (
+    _format_listen_url,
+    _get_listen_addresses,
+    _is_bind_all,
+    _is_interactive,
+    _is_localhost,
+    app,
+)
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 runner = CliRunner()
@@ -76,12 +83,16 @@ class TestRunCommand:
         )
         clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
-        assert "Proxy listening" in clean
+        assert "http://127.0.0.1:13128" in clean
         assert "Shutting down" in clean
 
+    @patch(
+        "slimproxy.cli._get_listen_addresses",
+        return_value=["10.0.0.5", "127.0.0.1"],
+    )
     @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
     @patch("slimproxy.cli.Proxy")
-    def test_with_all_options(self, mock_proxy, mock_sleep):
+    def test_with_all_options(self, mock_proxy, mock_sleep, mock_get_addrs):
         mock_instance = MagicMock()
         mock_instance.flags.hostname = "0.0.0.0"
         mock_instance.flags.port = "3128"
@@ -103,6 +114,8 @@ class TestRunCommand:
         )
         clean = _strip_ansi(result.stdout)
         assert result.exit_code == 0
+        assert "http://test:****@10.0.0.5:3128" in clean
+        assert "http://test:****@127.0.0.1:3128" in clean
         assert "Auth: enabled" in clean
         assert "Client IPs allowed" in clean
         assert "Destinations allowed" in clean
@@ -503,3 +516,39 @@ class TestHelpers:
 
     def test_is_interactive_not_a_tty(self):
         assert not _is_interactive()
+
+    def test_is_bind_all_positive(self):
+        assert _is_bind_all("0.0.0.0")
+        assert _is_bind_all("::")
+
+    def test_is_bind_all_negative(self):
+        assert not _is_bind_all("127.0.0.1")
+        assert not _is_bind_all("192.168.1.1")
+
+    def test_get_listen_addresses_specific_ip(self):
+        result = _get_listen_addresses("192.168.1.1")
+        assert result == ["192.168.1.1"]
+
+    @patch("slimproxy.cli.socket.gethostname", return_value="myhost")
+    @patch(
+        "slimproxy.cli.socket.gethostbyname_ex",
+        return_value=("myhost", [], ["10.0.0.5", "192.168.1.10"]),
+    )
+    def test_get_listen_addresses_bind_all(
+        self, mock_gethostbyname_ex, mock_gethostname
+    ):
+        result = _get_listen_addresses("0.0.0.0")
+        assert result == ["10.0.0.5", "127.0.0.1", "192.168.1.10"]
+
+    @patch("slimproxy.cli.socket.gethostname", side_effect=OSError)
+    def test_get_listen_addresses_fallback(self, mock_gethostname):
+        result = _get_listen_addresses("0.0.0.0")
+        assert result == ["127.0.0.1"]
+
+    def test_format_listen_url_with_auth(self):
+        result = _format_listen_url("10.0.0.1", 3128, "user:secret")
+        assert result == "http://user:****@10.0.0.1:3128"
+
+    def test_format_listen_url_no_auth(self):
+        result = _format_listen_url("10.0.0.1", 3128, None)
+        assert result == "http://10.0.0.1:3128"
