@@ -5,9 +5,18 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slimproxy.svg)](https://pypi.org/project/slimproxy)
 [![PyPI - License](https://img.shields.io/pypi/l/slimproxy.svg)](https://pypi.org/project/slimproxy)
 
-A lightweight forward proxy CLI built on `proxy.py` — deploy anywhere Python runs. Useful when you need a quick proxy on a host where squid is overkill or unavailable (no Docker, Windows host, locked-down desktop, etc.) and you want to forward requests through that host.
+A lightweight forward proxy CLI built on `proxy.py` — deploy anywhere Python runs.
 
-Typical scenario: your enterprise-managed desktop has a forward proxy that intercepts and inspects traffic to certain endpoints (AI APIs, for example). Deploy slimproxy on a second, unmanaged machine on the same network, point your tools at it, and bypass the inspection.
+**The problem**: Your enterprise-managed desktop sits behind a corporate forward proxy that intercepts and inspects TLS traffic to certain endpoints (AI APIs, for example). You can't control the proxy settings or install software — the machine is locked down.
+
+**The workaround**: Deploy slimproxy on a **second machine** on the same network — an unmanaged one you control (a Raspberry Pi, an old laptop, a cloud VM). That machine connects directly to the internet. Point your tools on the locked-down desktop at slimproxy, and traffic flows through the unmanaged machine, bypassing the corporate inspection entirely.
+
+```
+Locked-down desktop    →    slimproxy on unmanaged host    →    internet (direct)
+     HTTPS_PROXY=http://unmanaged:3128                              no inspection
+```
+
+**Why not Squid?** Squid doesn't run on Windows without Cygwin, needs a config file, and is overkill for a raw TCP forwarder. slimproxy is `pip install` + one command on any OS.
 
 ## Installation
 
@@ -98,11 +107,3 @@ docker run -it --rm \
   ghcr.io/hugobatista/slimproxy:latest run --basic-auth myuser:password123
 ```
 
-## CI/CD
-
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| Lint | push/PR to `**.py` | ruff check + format |
-| Test | push/PR to `**.py` | pytest + coverage |
-| PyPI | release published | Build + publish to PyPI |
-| GHCR | release published | Multi-arch Docker image to ghcr.io |
