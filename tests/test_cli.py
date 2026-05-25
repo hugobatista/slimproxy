@@ -172,12 +172,8 @@ class TestRunCommand:
         mock_proxy.return_value.__enter__.return_value = mock_instance
 
         with patch("sys.platform", "win32"):
-            with patch(
-                "slimproxy.cli.ensure_firewall_rule"
-            ) as mock_ensure:
-                with patch(
-                    "slimproxy.cli.remove_firewall_rule"
-                ) as mock_remove:
+            with patch("slimproxy.cli.ensure_firewall_rule") as mock_ensure:
+                with patch("slimproxy.cli.remove_firewall_rule") as mock_remove:
                     result = runner.invoke(
                         app,
                         [
@@ -191,9 +187,7 @@ class TestRunCommand:
                     )
 
         assert result.exit_code == 0
-        mock_ensure.assert_called_once_with(
-            3128, "10.0.0.0/8,192.168.1.0/24"
-        )
+        mock_ensure.assert_called_once_with(3128, "10.0.0.0/8,192.168.1.0/24")
         mock_remove.assert_called_once_with(3128)
 
     def test_windows_non_localhost_firewall_warning(self):

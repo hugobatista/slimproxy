@@ -67,4 +67,8 @@ def ensure_firewall_rule(port: int, remote_ips: str | None = None) -> None:
     if not is_admin():
         _elevate(sys.argv)
         sys.exit(0)
+    try:
+        remove_firewall_rule(port)
+    except subprocess.CalledProcessError:
+        pass
     add_firewall_rule(port, remote_ips)
