@@ -41,9 +41,10 @@ uv build --no-dev                      # build wheel
 | `tests/test_firewall.py` | Firewall helper unit tests |
 
 - `run` uses `proxy.py`'s built-in `FilterByClientIpPlugin` for IP allowlisting and `--basic-auth` for auth. Only destination filtering is custom.
+- `run --wizard` launches an interactive guided setup prompting for all options. On Windows, firewall is asked first; if elevation is needed, UAC triggers immediately and the wizard resumes in the elevated session. `--_wizard-firewall-handled` (hidden) signals the elevated child to skip the firewall prompt.
 - `run` warns on stderr when `--basic-auth` is omitted on a non-localhost interface. In a TTY, user is interactively prompted to configure credentials (with password confirmation).
 - `run --firewall-rule` (Windows) auto-adds a firewall rule; UAC elevation via `ctypes.windll.shell32`.
-- Tests mock `proxy.Proxy`, `typer.prompt`/`typer.confirm`, and `sys.stdin.isatty` for the auth prompt behavior.
+- Tests mock `proxy.Proxy`, `typer.prompt`/`typer.confirm`, and `sys.stdin.isatty` for the auth and wizard prompt behavior.
 
 ## Publishing
 

@@ -14,7 +14,12 @@ from proxy import Proxy
 from proxy.proxy import sleep_loop
 
 from slimproxy.check import check_target
-from slimproxy.firewall import ensure_firewall_rule, remove_firewall_rule
+from slimproxy.firewall import (
+    _elevate,
+    ensure_firewall_rule,
+    is_admin,
+    remove_firewall_rule,
+)
 
 _firewall_hidden = sys.platform != "win32"
 
@@ -24,7 +29,7 @@ _run_epilog = "\n\n".join(
     [
         "",
         "Examples:",
-        "slimproxy run",
+        "slimproxy run --wizard",
         "slimproxy run --basic-auth user:pass --allow-ips 192.168.1.0/24",
         "slimproxy run --allow-dests api.opencode.ai",
         "slimproxy run --port 8888 --log-level DEBUG",
@@ -36,7 +41,8 @@ _run_epilog = "\n\n".join(
 if sys.platform == "win32":
     _run_epilog += "\n\n" + (
         "slimproxy run --firewall-rule --allow-ips 192.168.100.0/24"
-        " --basic-auth myuser:mypassword"
+        " --basic-auth myuser:mypassword\n"
+        "slimproxy run --wizard"
     )
 
 _check_epilog = "\n\n".join(
@@ -75,11 +81,216 @@ def _get_listen_addresses(hostname: str) -> list[str]:
     return sorted(addrs)
 
 
+def _get_available_addresses() -> list[str]:
+    addrs: set[str] = set()
+    addrs.update(("0.0.0.0", "127.0.0.1", "::", "::1"))
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None):
+            ip = info[4][0]
+            if isinstance(ip, str):
+                if not ip.startswith("127.") and ip != "::1":
+                    addrs.add(ip)
+    except OSError:
+        pass
+    return sorted(addrs)
+
+
 def _format_listen_url(addr: str, port: int, auth: str | None) -> str:
     if auth is None:
         return f"http://{addr}:{port}"
     user = auth.split(":", 1)[0]
     return f"http://{user}:****@{addr}:{port}"
+
+
+_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+
+
+def _run_wizard(
+    cur_hostname: str,
+    cur_port: int,
+    cur_basic_auth: str | None,
+    cur_allow_ips: str | None,
+    cur_allow_dests: str | None,
+    cur_log_level: str,
+    cur_timeout: int,
+    firewall_handled: bool,
+) -> tuple[str, int, str | None, str | None, str | None, str, int, bool]:
+    firewall_active = False
+
+    if sys.platform == "win32":
+        if not firewall_handled:
+            typer.secho(
+                "\n--- Firewall (Windows) ---\n",
+                fg=typer.colors.CYAN,
+                bold=True,
+            )
+            if typer.confirm("Add Windows Firewall rule?", default=False):
+                ips = typer.prompt(
+                    "Restrict to IPs"
+                    " (CIDR, comma-separated, e.g. 192.168.1.0/24,10.0.0.0/8)",
+                    default="",
+                    show_default=False,
+                )
+                cur_allow_ips = ips.strip() or cur_allow_ips
+                if not is_admin():
+                    elevate_args = list(sys.argv)
+                    if "--_wizard-firewall-handled" not in elevate_args:
+                        elevate_args.append("--_wizard-firewall-handled")
+                    if cur_allow_ips and "--allow-ips" not in elevate_args:
+                        elevate_args.extend(["--allow-ips", cur_allow_ips])
+                    _elevate(elevate_args)
+                    sys.exit(0)
+                firewall_active = True
+        else:
+            firewall_active = True
+
+    typer.secho(
+        "\n--- Network ---\n",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    addrs = _get_available_addresses()
+    typer.echo("  Available addresses: " + ", ".join(addrs))
+    hostname = typer.prompt("Hostname", default=cur_hostname)
+    while True:
+        raw = typer.prompt("Port", default=str(cur_port))
+        try:
+            port = int(raw)
+            break
+        except ValueError:
+            typer.secho(
+                "Error: port must be a number.",
+                err=True,
+                fg=typer.colors.RED,
+            )
+    while True:
+        raw = typer.prompt(
+            f"Log level ({'/'.join(_LOG_LEVELS)})",
+            default=cur_log_level,
+        )
+        if raw.upper() in _LOG_LEVELS:
+            log_level = raw.upper()
+            break
+        typer.secho(
+            f"Error: must be one of {', '.join(_LOG_LEVELS)}.",
+            err=True,
+            fg=typer.colors.RED,
+        )
+    timeout = int(typer.prompt("Timeout (seconds)", default=str(cur_timeout)))
+
+    if cur_basic_auth is not None:
+        typer.secho(
+            "\n--- Authentication ---\n",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+        user = cur_basic_auth.split(":", 1)[0]
+        typer.echo(f"  Auth already set for user: {user}")
+        basic_auth = cur_basic_auth
+        if typer.confirm("Change credentials?", default=False):
+            username = typer.prompt("Username")
+            password = typer.prompt(
+                "Password", hide_input=True, confirmation_prompt=True
+            )
+            if not username or not password:
+                typer.secho(
+                    "Error: username and password cannot be empty.",
+                    err=True,
+                    fg=typer.colors.RED,
+                    bold=True,
+                )
+                raise typer.Exit(code=1)
+            basic_auth = f"{username}:{password}"
+    else:
+        typer.secho(
+            "\n--- Authentication ---\n",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+        if typer.confirm("Enable authentication?", default=False):
+            username = typer.prompt("Username")
+            password = typer.prompt(
+                "Password", hide_input=True, confirmation_prompt=True
+            )
+            if not username or not password:
+                typer.secho(
+                    "Error: username and password cannot be empty.",
+                    err=True,
+                    fg=typer.colors.RED,
+                    bold=True,
+                )
+                raise typer.Exit(code=1)
+            basic_auth = f"{username}:{password}"
+        else:
+            basic_auth = None
+
+    typer.secho(
+        "\n--- Access Control ---\n",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    if cur_allow_ips is None and not firewall_active:
+        raw = typer.prompt(
+            "Restrict by client IPs"
+            " (CIDR, comma-separated, e.g. 192.168.1.0/24,10.0.0.0/8)",
+            default="",
+            show_default=False,
+        )
+        allow_ips = raw.strip() or None
+    else:
+        typer.echo(f"  Client IPs: {cur_allow_ips or 'all'}")
+        allow_ips = cur_allow_ips
+    if cur_allow_dests is None:
+        raw = typer.prompt(
+            "Restrict by destination hosts"
+            " (comma-separated, e.g. api.example.com,api.github.com)",
+            default="",
+            show_default=False,
+        )
+        allow_dests = raw.strip() or None
+    else:
+        typer.echo(f"  Destinations: {cur_allow_dests}")
+        allow_dests = cur_allow_dests
+
+    return (
+        hostname,
+        port,
+        basic_auth,
+        allow_ips,
+        allow_dests,
+        log_level,
+        timeout,
+        firewall_active,
+    )
+
+
+def _show_wizard_summary(
+    hostname: str,
+    port: int,
+    basic_auth: str | None,
+    allow_ips: str | None,
+    allow_dests: str | None,
+    log_level: str,
+    timeout: int,
+    firewall_active: bool,
+) -> None:
+    typer.secho("\n--- Summary ---\n", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  Hostname:          {hostname}")
+    typer.echo(f"  Port:              {port}")
+    typer.echo(f"  Log level:         {log_level}")
+    typer.echo(f"  Timeout:           {timeout}s")
+    if basic_auth:
+        user = basic_auth.split(":", 1)[0]
+        typer.echo(f"  Auth:              {user}:****")
+    else:
+        typer.echo("  Auth:              none")
+    typer.echo(f"  Allowed IPs:       {allow_ips or 'all'}")
+    typer.echo(f"  Allowed dests:     {allow_dests or 'all'}")
+    if sys.platform == "win32" and firewall_active:
+        msg = "rule added"
+        if allow_ips:
+            msg += f", restricted to {allow_ips}"
+        typer.echo(f"  Firewall:          {msg}")
 
 
 app = typer.Typer(
@@ -158,10 +369,68 @@ def run(
         help="Add Windows Firewall rule for the proxy port (requires admin)",
         hidden=_firewall_hidden,
     ),
+    wizard: bool = typer.Option(
+        False,
+        "--wizard",
+        help="Guided interactive setup wizard",
+    ),
+    _wizard_firewall_handled: bool = typer.Option(
+        False,
+        "--_wizard-firewall-handled",
+        hidden=True,
+        help="Internal flag for wizard firewall elevation",
+    ),
 ) -> None:
     """Start the forward proxy server."""
-    firewall_active = False
-    if firewall_rule:
+    if wizard:
+        if not _is_interactive():
+            typer.secho(
+                "Error: --wizard requires an interactive terminal.",
+                err=True,
+                fg=typer.colors.RED,
+                bold=True,
+            )
+            raise typer.Exit(code=1)
+        (
+            hostname,
+            port,
+            basic_auth,
+            allow_ips,
+            allow_dests,
+            log_level,
+            timeout,
+            wizard_firewall_active,
+        ) = _run_wizard(
+            hostname,
+            port,
+            basic_auth,
+            allow_ips,
+            allow_dests,
+            log_level,
+            timeout,
+            _wizard_firewall_handled,
+        )
+        _show_wizard_summary(
+            hostname,
+            port,
+            basic_auth,
+            allow_ips,
+            allow_dests,
+            log_level,
+            timeout,
+            wizard_firewall_active,
+        )
+        if not typer.confirm(
+            "\nStart proxy with these settings?", default=True
+        ):
+            raise typer.Exit()
+        firewall_active = wizard_firewall_active
+        if wizard_firewall_active and sys.platform == "win32":
+            ensure_firewall_rule(port, allow_ips)
+    else:
+        firewall_active = False
+
+    if not wizard and firewall_rule:
         if sys.platform == "win32":
             ensure_firewall_rule(port, allow_ips)
             firewall_active = True
@@ -176,6 +445,7 @@ def run(
         sys.platform == "win32"
         and not _is_localhost(hostname)
         and not firewall_rule
+        and not wizard
     ):
         typer.secho(
             "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
@@ -185,7 +455,7 @@ def run(
             fg=typer.colors.YELLOW,
         )
 
-    if basic_auth is None and not _is_localhost(hostname):
+    if basic_auth is None and not _is_localhost(hostname) and not wizard:
         typer.secho(
             "WARNING: No authentication configured. The proxy is accessible "
             f"from {hostname!r} without authentication. "

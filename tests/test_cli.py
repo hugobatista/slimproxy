@@ -3,14 +3,19 @@ import importlib.metadata
 import re
 from unittest.mock import MagicMock, patch
 
+import pytest
+import typer
 from typer.testing import CliRunner
 
 from slimproxy.cli import (
     _format_listen_url,
+    _get_available_addresses,
     _get_listen_addresses,
     _is_bind_all,
     _is_interactive,
     _is_localhost,
+    _run_wizard,
+    _show_wizard_summary,
     app,
 )
 
@@ -554,3 +559,589 @@ class TestHelpers:
     def test_format_listen_url_no_auth(self):
         result = _format_listen_url("10.0.0.1", 3128, None)
         assert result == "http://10.0.0.1:3128"
+
+    def test_get_available_addresses_always_includes_common(self):
+        result = _get_available_addresses()
+        assert "0.0.0.0" in result
+        assert "127.0.0.1" in result
+        assert "::" in result
+        assert "::1" in result
+        for addr in result:
+            assert isinstance(addr, str)
+
+    @patch(
+        "slimproxy.cli.socket.getaddrinfo",
+        side_effect=OSError("no network"),
+    )
+    def test_get_available_addresses_oserror_fallback(self, mock_getaddrinfo):
+        result = _get_available_addresses()
+        assert "0.0.0.0" in result
+        assert "127.0.0.1" in result
+
+
+class TestRunWizard:
+    def test_all_defaults(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == ("0.0.0.0", 3128, None, None, None, "INFO", 10, False)
+
+    def test_with_auth(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                mock_confirm.side_effect = [True]
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "testuser",
+                    "testpass",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            "testuser:testpass",
+            None,
+            None,
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_with_existing_auth(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0",
+                    3128,
+                    "existing:pass",
+                    None,
+                    None,
+                    "INFO",
+                    10,
+                    False,
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            "existing:pass",
+            None,
+            None,
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_with_existing_auth_rotated(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                mock_confirm.side_effect = [True]
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "newuser",
+                    "newpass",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, "old:pass", None, None, "INFO", 10, False
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            "newuser:newpass",
+            None,
+            None,
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_with_existing_auth_empty_raises(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                mock_confirm.side_effect = [True]
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                with pytest.raises(typer.Exit) as exc:
+                    _run_wizard(
+                        "0.0.0.0",
+                        3128,
+                        "old:pass",
+                        None,
+                        None,
+                        "INFO",
+                        10,
+                        False,
+                    )
+        assert exc.value.exit_code == 1
+
+    def test_with_auth_empty_raises(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                mock_confirm.side_effect = [True]
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                with pytest.raises(typer.Exit) as exc:
+                    _run_wizard(
+                        "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                    )
+        assert exc.value.exit_code == 1
+
+    def test_with_allow_ips(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "10.0.0.0/8",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            None,
+            "10.0.0.0/8",
+            None,
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_with_allow_dests(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "api.example.com",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            None,
+            None,
+            "api.example.com",
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_with_prefilled_ips_and_dests(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "INFO",
+                    "10",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0",
+                    3128,
+                    None,
+                    "10.0.0.0/8",
+                    "api.example.com",
+                    "INFO",
+                    10,
+                    False,
+                )
+        assert result == (
+            "0.0.0.0",
+            3128,
+            None,
+            "10.0.0.0/8",
+            "api.example.com",
+            "INFO",
+            10,
+            False,
+        )
+
+    def test_invalid_port(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "abc",
+                    "3128",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == ("0.0.0.0", 3128, None, None, None, "INFO", 10, False)
+
+    def test_invalid_log_level(self):
+        with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+            with patch("slimproxy.cli.typer.confirm", return_value=False):
+                mock_prompt.side_effect = [
+                    "0.0.0.0",
+                    "3128",
+                    "BOGUS",
+                    "INFO",
+                    "10",
+                    "",
+                    "",
+                ]
+                result = _run_wizard(
+                    "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+                )
+        assert result == ("0.0.0.0", 3128, None, None, None, "INFO", 10, False)
+
+    def test_firewall_windows_admin(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.is_admin", return_value=True):
+                with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                    with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                        mock_confirm.side_effect = [True, False]
+                        mock_prompt.side_effect = [
+                            "",  # firewall IPs
+                            "0.0.0.0",
+                            "3128",
+                            "INFO",
+                            "10",
+                            "",  # allow_dests
+                        ]
+                        result = _run_wizard(
+                            "0.0.0.0",
+                            3128,
+                            None,
+                            None,
+                            None,
+                            "INFO",
+                            10,
+                            False,
+                        )
+        assert result[-1] is True
+
+    def test_firewall_windows_admin_with_ips(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.is_admin", return_value=True):
+                with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                    with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                        mock_confirm.side_effect = [True, False]
+                        mock_prompt.side_effect = [
+                            "10.0.0.0/8",  # firewall IPs
+                            "0.0.0.0",
+                            "3128",
+                            "INFO",
+                            "10",
+                            "",  # allow_dests
+                        ]
+                        result = _run_wizard(
+                            "0.0.0.0",
+                            3128,
+                            None,
+                            None,
+                            None,
+                            "INFO",
+                            10,
+                            False,
+                        )
+        assert result[-1] is True
+        assert result[3] == "10.0.0.0/8"
+
+    def test_firewall_windows_declined(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                    mock_confirm.side_effect = [False, False]
+                    mock_prompt.side_effect = [
+                        "0.0.0.0",
+                        "3128",
+                        "INFO",
+                        "10",
+                        "",
+                        "",
+                    ]
+                    result = _run_wizard(
+                        "0.0.0.0",
+                        3128,
+                        None,
+                        None,
+                        None,
+                        "INFO",
+                        10,
+                        False,
+                    )
+        assert result[-1] is False
+
+    def test_firewall_windows_not_admin(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.is_admin", return_value=False):
+                with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                    with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                        with patch("slimproxy.cli._elevate"):
+                            mock_confirm.side_effect = [True]
+                            mock_prompt.side_effect = [
+                                "",  # firewall IPs
+                            ]
+                            with pytest.raises(SystemExit):
+                                _run_wizard(
+                                    "0.0.0.0",
+                                    3128,
+                                    None,
+                                    None,
+                                    None,
+                                    "INFO",
+                                    10,
+                                    False,
+                                )
+        mock_confirm.assert_called_once()
+        mock_prompt.assert_called_once()
+
+    def test_firewall_windows_already_handled(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                with patch("slimproxy.cli.typer.confirm", return_value=False):
+                    mock_prompt.side_effect = [
+                        "0.0.0.0",
+                        "3128",
+                        "INFO",
+                        "10",
+                        "",
+                        "",
+                    ]
+                    result = _run_wizard(
+                        "0.0.0.0",
+                        3128,
+                        None,
+                        None,
+                        None,
+                        "INFO",
+                        10,
+                        True,
+                    )
+        assert result[-1] is True
+
+    def test_firewall_windows_elevate_passes_allow_ips(self):
+        with patch("sys.platform", "win32"):
+            with patch("slimproxy.cli.is_admin", return_value=False):
+                with patch("slimproxy.cli.typer.prompt") as mock_prompt:
+                    with patch("slimproxy.cli.typer.confirm") as mock_confirm:
+                        with patch("slimproxy.cli._elevate") as mock_elevate:
+                            mock_confirm.side_effect = [True]
+                            mock_prompt.side_effect = [
+                                "10.0.0.0/8",
+                            ]
+                            with pytest.raises(SystemExit):
+                                _run_wizard(
+                                    "0.0.0.0",
+                                    3128,
+                                    None,
+                                    None,
+                                    None,
+                                    "INFO",
+                                    10,
+                                    False,
+                                )
+        mock_elevate.assert_called_once()
+        args = mock_elevate.call_args[0][0]
+        assert "--_wizard-firewall-handled" in args
+        assert "--allow-ips" in args
+        assert "10.0.0.0/8" in args
+
+
+class TestShowWizardSummary:
+    def test_no_auth_no_firewall(self, capsys):
+        _show_wizard_summary(
+            "0.0.0.0", 3128, None, None, None, "INFO", 10, False
+        )
+        captured = capsys.readouterr()
+        assert "Summary" in captured.out
+        assert "auth:              none" in captured.out.lower()
+        assert "firewall" not in captured.out.lower()
+
+    def test_with_auth(self, capsys):
+        _show_wizard_summary(
+            "0.0.0.0", 3128, "user:pass", None, None, "INFO", 10, False
+        )
+        captured = capsys.readouterr()
+        assert "user:****" in captured.out
+
+    def test_with_ips_and_dests(self, capsys):
+        _show_wizard_summary(
+            "0.0.0.0",
+            3128,
+            None,
+            "10.0.0.0/8",
+            "api.example.com",
+            "INFO",
+            10,
+            False,
+        )
+        captured = capsys.readouterr()
+        assert "10.0.0.0/8" in captured.out
+        assert "api.example.com" in captured.out
+
+    def test_with_firewall_windows(self, capsys):
+        with patch("sys.platform", "win32"):
+            _show_wizard_summary(
+                "0.0.0.0", 3128, None, None, None, "INFO", 10, True
+            )
+        captured = capsys.readouterr()
+        assert "Firewall" in captured.out
+        assert "rule added" in captured.out
+
+    def test_with_firewall_windows_restricted(self, capsys):
+        with patch("sys.platform", "win32"):
+            _show_wizard_summary(
+                "0.0.0.0",
+                3128,
+                None,
+                "10.0.0.0/8",
+                None,
+                "INFO",
+                10,
+                True,
+            )
+        captured = capsys.readouterr()
+        assert "restricted to 10.0.0.0/8" in captured.out
+
+
+class TestWizardCliIntegration:
+    def test_requires_tty(self):
+        result = runner.invoke(app, ["run", "--wizard", "--log-level", "ERROR"])
+        assert result.exit_code == 1
+        assert "requires an interactive terminal" in _strip_ansi(result.stderr)
+
+    @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
+    @patch("slimproxy.cli.Proxy")
+    def test_startup_after_wizard(self, mock_proxy, mock_sleep):
+        mock_instance = MagicMock()
+        mock_instance.flags.hostname = "0.0.0.0"
+        mock_instance.flags.port = "3128"
+        mock_proxy.return_value.__enter__.return_value = mock_instance
+
+        with patch("slimproxy.cli._is_interactive", return_value=True):
+            with patch("slimproxy.cli._run_wizard") as mock_wizard:
+                mock_wizard.return_value = (
+                    "0.0.0.0",
+                    3128,
+                    None,
+                    None,
+                    None,
+                    "ERROR",
+                    10,
+                    False,
+                )
+                result = runner.invoke(
+                    app,
+                    ["run", "--wizard", "--log-level", "ERROR"],
+                    input="y\n",
+                )
+
+        clean = _strip_ansi(result.stdout)
+        assert result.exit_code == 0
+        assert "start proxy with these settings?" in clean.lower()
+
+    @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
+    @patch("slimproxy.cli.Proxy")
+    def test_cancelled_at_summary(self, mock_proxy, mock_sleep):
+        with patch("slimproxy.cli._is_interactive", return_value=True):
+            with patch("slimproxy.cli._run_wizard") as mock_wizard:
+                mock_wizard.return_value = (
+                    "0.0.0.0",
+                    3128,
+                    None,
+                    None,
+                    None,
+                    "ERROR",
+                    10,
+                    False,
+                )
+                result = runner.invoke(
+                    app,
+                    ["run", "--wizard", "--log-level", "ERROR"],
+                    input="n\n",
+                )
+
+        assert result.exit_code == 0
+
+    @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
+    @patch("slimproxy.cli.Proxy")
+    def test_firewall_after_wizard_windows(self, mock_proxy, mock_sleep):
+        mock_instance = MagicMock()
+        mock_instance.flags.hostname = "0.0.0.0"
+        mock_instance.flags.port = "3128"
+        mock_proxy.return_value.__enter__.return_value = mock_instance
+
+        with patch("slimproxy.cli._is_interactive", return_value=True):
+            with patch("slimproxy.cli._run_wizard") as mock_wizard:
+                with patch("slimproxy.cli.ensure_firewall_rule") as mock_fw:
+                    with patch(
+                        "slimproxy.cli.remove_firewall_rule"
+                    ) as mock_remove:
+                        with patch("sys.platform", "win32"):
+                            mock_wizard.return_value = (
+                                "0.0.0.0",
+                                3128,
+                                None,
+                                "10.0.0.0/8",
+                                None,
+                                "ERROR",
+                                10,
+                                True,
+                            )
+                            result = runner.invoke(
+                                app,
+                                ["run", "--wizard", "--log-level", "ERROR"],
+                                input="y\n",
+                            )
+
+        assert result.exit_code == 0
+        mock_fw.assert_called_once_with(3128, "10.0.0.0/8")
+        mock_remove.assert_called_once_with(3128)
