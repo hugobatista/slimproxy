@@ -50,7 +50,7 @@ jobs:
         fi
 
     - name: Build package
-      run: uv build --no-dev
+      run: uv build
 
     - name: Display structure of build files
       id: display_build_files
