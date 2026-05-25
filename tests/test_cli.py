@@ -1,3 +1,5 @@
+import importlib
+import importlib.metadata
 import re
 from unittest.mock import MagicMock, patch
 
@@ -381,6 +383,59 @@ class TestRunCommand:
 
         assert result.exit_code == 1
         assert "cannot be empty" in result.stderr
+
+
+class TestVersion:
+    def test_version_flag(self):
+        result = runner.invoke(app, ["--version"])
+        assert result.exit_code == 0
+        assert result.stdout.strip() == "0.1.0"
+
+    def test_version_in_help(self):
+        result = runner.invoke(app)
+        assert result.exit_code == 0
+        assert "0.1.0" in result.stdout
+        assert "slimproxy" in result.stdout.splitlines()[0]
+
+    def test_version_in_run_help(self):
+        result = runner.invoke(app, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "0.1.0" in result.stdout
+
+    def test_version_in_check_help(self):
+        result = runner.invoke(app, ["check", "--help"])
+        assert result.exit_code == 0
+        assert "0.1.0" in result.stdout
+
+    def test_version_in_help_flag(self):
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "0.1.0" in result.stdout
+
+    def test_version_dev_fallback(self):
+        import slimproxy.cli as cli_mod
+
+        orig = cli_mod._APP_VERSION
+        cli_mod._APP_VERSION = "dev"
+        try:
+            result = runner.invoke(app, ["--version"])
+            assert result.exit_code == 0
+            assert result.stdout.strip() == "dev"
+        finally:
+            cli_mod._APP_VERSION = orig
+
+    def test_version_package_not_found(self):
+        with patch(
+            "importlib.metadata.version",
+            side_effect=importlib.metadata.PackageNotFoundError,
+        ):
+            import slimproxy.cli as cli_mod
+
+            importlib.reload(cli_mod)
+            result = runner.invoke(cli_mod.app, ["--version"])
+            assert result.exit_code == 0
+            assert result.stdout.strip() == "dev"
+        importlib.reload(__import__("slimproxy").cli)
 
 
 class TestHelpers:

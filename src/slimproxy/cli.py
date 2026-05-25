@@ -1,7 +1,14 @@
+import importlib.metadata
 import ssl
 import sys
 
 import typer
+
+try:
+    _APP_VERSION = importlib.metadata.version("slimproxy")
+except importlib.metadata.PackageNotFoundError:
+    _APP_VERSION = "dev"
+
 from proxy import Proxy
 from proxy.proxy import sleep_loop
 
@@ -24,12 +31,32 @@ def _is_interactive() -> bool:
 app = typer.Typer(
     name="slimproxy",
     help=(
-        "Slim forward proxy with optional IP, auth, and destination filtering."
+        "Slim forward proxy with optional IP, auth, and destination"
+        f" filtering. (v{_APP_VERSION})"
     ),
 )
 
 
-@app.command()
+@app.callback(invoke_without_command=True)
+def _main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False, "--version", help="Show version and exit", is_eager=True
+    ),
+) -> None:
+    if version:
+        typer.echo(_APP_VERSION)
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        typer.echo(f"slimproxy {_APP_VERSION}")
+        typer.echo()
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
+@app.command(
+    help=f"Start the forward proxy server (slimproxy v{_APP_VERSION})",
+)
 def run(
     hostname: str = typer.Option(
         "0.0.0.0",
@@ -176,7 +203,12 @@ def run(
             remove_firewall_rule(port)
 
 
-@app.command()
+@app.command(
+    help=(
+        "Check if SSL inspection is active for given targets"
+        f" (slimproxy v{_APP_VERSION})"
+    ),
+)
 def check(
     targets: list[str] = typer.Argument(
         ["api.opencode.ai"],
