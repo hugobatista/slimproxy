@@ -20,8 +20,22 @@ Locked-down desktop    →    slimproxy on unmanaged host    →    internet (di
 
 ## Installation
 
+Install globally via `uv` (recommended):
+
+```bash
+uv tool install slimproxy
+```
+
+Or via `pip`:
+
 ```bash
 pip install slimproxy
+```
+
+Or run directly without installing:
+
+```bash
+uvx slimproxy
 ```
 
 Or from source:
