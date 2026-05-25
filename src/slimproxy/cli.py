@@ -103,6 +103,31 @@ def run(
     ),
 ) -> None:
     """Start the forward proxy server."""
+    firewall_active = False
+    if firewall_rule:
+        if sys.platform == "win32":
+            ensure_firewall_rule(port)
+            firewall_active = True
+        else:
+            typer.secho(
+                "--firewall-rule is only supported on Windows, ignoring.",
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
+
+    if (
+        sys.platform == "win32"
+        and not _is_localhost(hostname)
+        and not firewall_rule
+    ):
+        typer.secho(
+            "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
+            f"port {port}. "
+            "Use --firewall-rule to add a rule automatically.",
+            err=True,
+            fg=typer.colors.YELLOW,
+        )
+
     if basic_auth is None and not _is_localhost(hostname):
         typer.secho(
             "WARNING: No authentication configured. The proxy is accessible "
@@ -159,31 +184,6 @@ def run(
         proxy_args.extend(["--allow-dests", allow_dests])
     if plugins:
         proxy_args.extend(["--plugins", ",".join(plugins)])
-
-    firewall_active = False
-    if firewall_rule:
-        if sys.platform == "win32":
-            ensure_firewall_rule(port)
-            firewall_active = True
-        else:
-            typer.secho(
-                "--firewall-rule is only supported on Windows, ignoring.",
-                err=True,
-                fg=typer.colors.YELLOW,
-            )
-
-    if (
-        sys.platform == "win32"
-        and not _is_localhost(hostname)
-        and not firewall_rule
-    ):
-        typer.secho(
-            "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
-            f"port {port}. "
-            "Use --firewall-rule to add a rule automatically.",
-            err=True,
-            fg=typer.colors.YELLOW,
-        )
 
     try:
         with Proxy(input_args=proxy_args) as proxy:
