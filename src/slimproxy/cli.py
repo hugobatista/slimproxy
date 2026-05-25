@@ -106,7 +106,7 @@ def run(
     firewall_active = False
     if firewall_rule:
         if sys.platform == "win32":
-            ensure_firewall_rule(port)
+            ensure_firewall_rule(port, allow_ips)
             firewall_active = True
         else:
             typer.secho(

@@ -158,7 +158,42 @@ class TestRunCommand:
                     )
 
         assert result.exit_code == 0
-        mock_ensure.assert_called_once_with(3128)
+        mock_ensure.assert_called_once_with(3128, None)
+        mock_remove.assert_called_once_with(3128)
+
+    @patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt())
+    @patch("slimproxy.cli.Proxy")
+    def test_firewall_rule_with_allow_ips_on_windows(
+        self, mock_proxy, mock_sleep
+    ):
+        mock_instance = MagicMock()
+        mock_instance.flags.hostname = "0.0.0.0"
+        mock_instance.flags.port = "3128"
+        mock_proxy.return_value.__enter__.return_value = mock_instance
+
+        with patch("sys.platform", "win32"):
+            with patch(
+                "slimproxy.cli.ensure_firewall_rule"
+            ) as mock_ensure:
+                with patch(
+                    "slimproxy.cli.remove_firewall_rule"
+                ) as mock_remove:
+                    result = runner.invoke(
+                        app,
+                        [
+                            "run",
+                            "--firewall-rule",
+                            "--allow-ips",
+                            "10.0.0.0/8,192.168.1.0/24",
+                            "--log-level",
+                            "ERROR",
+                        ],
+                    )
+
+        assert result.exit_code == 0
+        mock_ensure.assert_called_once_with(
+            3128, "10.0.0.0/8,192.168.1.0/24"
+        )
         mock_remove.assert_called_once_with(3128)
 
     def test_windows_non_localhost_firewall_warning(self):

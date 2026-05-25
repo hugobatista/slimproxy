@@ -20,21 +20,24 @@ def _elevate(args: list[str]) -> None:
         raise RuntimeError(f"Failed to elevate privileges (error: {ret})")
 
 
-def add_firewall_rule(port: int) -> None:
+def add_firewall_rule(port: int, remote_ips: str | None = None) -> None:
     name = f"slimproxy-port-{port}"
+    args: list[str] = [
+        "netsh",
+        "advfirewall",
+        "firewall",
+        "add",
+        "rule",
+        f"name={name}",
+        "dir=in",
+        "action=allow",
+        "protocol=TCP",
+        f"localport={port}",
+    ]
+    if remote_ips:
+        args.append(f"remoteip={remote_ips}")
     subprocess.run(
-        [
-            "netsh",
-            "advfirewall",
-            "firewall",
-            "add",
-            "rule",
-            f"name={name}",
-            "dir=in",
-            "action=allow",
-            "protocol=TCP",
-            f"localport={port}",
-        ],
+        args,
         check=True,
         capture_output=True,
         text=True,
@@ -58,10 +61,10 @@ def remove_firewall_rule(port: int) -> None:
     )
 
 
-def ensure_firewall_rule(port: int) -> None:
+def ensure_firewall_rule(port: int, remote_ips: str | None = None) -> None:
     if not _windows:
         return
     if not is_admin():
         _elevate(sys.argv)
         sys.exit(0)
-    add_firewall_rule(port)
+    add_firewall_rule(port, remote_ips)

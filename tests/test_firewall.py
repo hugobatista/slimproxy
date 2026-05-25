@@ -86,6 +86,31 @@ class TestAddFirewallRule:
             text=True,
         )
 
+    def test_adds_rule_with_remote_ips(self):
+        with patch("slimproxy.firewall.subprocess.run") as mock_run:
+            add_firewall_rule(
+                3128, remote_ips="192.168.1.0/24,10.0.0.0/8"
+            )
+
+        mock_run.assert_called_once_with(
+            [
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                "name=slimproxy-port-3128",
+                "dir=in",
+                "action=allow",
+                "protocol=TCP",
+                "localport=3128",
+                "remoteip=192.168.1.0/24,10.0.0.0/8",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
 
 class TestRemoveFirewallRule:
     def test_removes_rule(self):
@@ -140,4 +165,15 @@ class TestEnsureFirewallRule:
                 with patch("slimproxy.firewall.add_firewall_rule") as mock_add:
                     ensure_firewall_rule(3128)
 
-        mock_add.assert_called_once_with(3128)
+        mock_add.assert_called_once_with(3128, None)
+
+    def test_adds_rule_when_admin_with_remote_ips(self):
+        with patch("slimproxy.firewall._windows", True):
+            with patch("slimproxy.firewall.ctypes") as mock_ctypes:
+                mock_ctypes.windll.shell32.IsUserAnAdmin.return_value = 1
+                with patch("slimproxy.firewall.add_firewall_rule") as mock_add:
+                    ensure_firewall_rule(
+                        3128, remote_ips="10.0.0.0/8"
+                    )
+
+        mock_add.assert_called_once_with(3128, "10.0.0.0/8")
