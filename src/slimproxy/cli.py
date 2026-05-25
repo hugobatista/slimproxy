@@ -10,6 +10,17 @@ from slimproxy.firewall import ensure_firewall_rule, remove_firewall_rule
 
 _firewall_hidden = sys.platform != "win32"
 
+_LOCALHOST_HOSTNAMES = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def _is_localhost(hostname: str) -> bool:
+    return hostname in _LOCALHOST_HOSTNAMES
+
+
+def _is_interactive() -> bool:
+    return sys.stdin.isatty()
+
+
 app = typer.Typer(
     name="slimproxy",
     help=(
@@ -65,6 +76,27 @@ def run(
     ),
 ) -> None:
     """Start the forward proxy server."""
+    if basic_auth is None and not _is_localhost(hostname):
+        typer.echo(
+            "WARNING: No authentication configured. The proxy is accessible "
+            f"from {hostname!r} without authentication. "
+            "Consider using --basic-auth.",
+            err=True,
+        )
+        if _is_interactive():
+            if typer.confirm("Would you like to configure authentication now?"):
+                username = typer.prompt("Username:")
+                password = typer.prompt(
+                    "Password:", hide_input=True, confirmation_prompt=True
+                )
+                if not username or not password:
+                    typer.echo(
+                        "Error: username and password cannot be empty.",
+                        err=True,
+                    )
+                    raise typer.Exit(code=1)
+                basic_auth = f"{username}:{password}"
+
     proxy_args: list[str] = [
         "--hostname",
         hostname,

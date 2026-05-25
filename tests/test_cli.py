@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from slimproxy.cli import app
+from slimproxy.cli import _is_interactive, _is_localhost, app
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 runner = CliRunner()
@@ -165,3 +165,153 @@ class TestRunCommand:
         )
         assert result.exit_code == 1
         assert "Bind failed" in result.stderr
+
+    def test_no_warning_on_localhost(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                mock_instance = MagicMock()
+                mock_instance.flags.hostname = "127.0.0.1"
+                mock_instance.flags.port = "13128"
+                mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                result = runner.invoke(
+                    app,
+                    [
+                        "run",
+                        "--hostname",
+                        "127.0.0.1",
+                        "--port",
+                        "13128",
+                        "--log-level",
+                        "ERROR",
+                    ],
+                )
+
+        assert result.exit_code == 0
+        assert "WARNING" not in result.stderr
+
+    def test_no_warning_when_auth_provided(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                mock_instance = MagicMock()
+                mock_instance.flags.hostname = "0.0.0.0"
+                mock_instance.flags.port = "13128"
+                mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                result = runner.invoke(
+                    app,
+                    [
+                        "run",
+                        "--basic-auth",
+                        "user:pass",
+                        "--port",
+                        "13128",
+                        "--log-level",
+                        "ERROR",
+                    ],
+                )
+
+        assert result.exit_code == 0
+        assert "WARNING" not in result.stderr
+
+    def test_warning_on_non_localhost_no_auth(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                mock_instance = MagicMock()
+                mock_instance.flags.hostname = "0.0.0.0"
+                mock_instance.flags.port = "13128"
+                mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                result = runner.invoke(
+                    app,
+                    ["run", "--port", "13128", "--log-level", "ERROR"],
+                )
+
+        assert result.exit_code == 0
+        assert "WARNING" in result.stderr
+        assert "No authentication configured" in result.stderr
+        assert "0.0.0.0" in result.stderr
+
+    def test_interactive_auth_configures(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                with patch("slimproxy.cli._is_interactive", return_value=True):
+                    with patch(
+                        "slimproxy.cli.typer.confirm", return_value=True
+                    ):
+                        with patch(
+                            "slimproxy.cli.typer.prompt",
+                            side_effect=["myuser", "mypass"],
+                        ):
+                            mock_instance = MagicMock()
+                            mock_instance.flags.hostname = "0.0.0.0"
+                            mock_instance.flags.port = "13128"
+                            mock_proxy.return_value.__enter__.return_value = (
+                                mock_instance
+                            )
+
+                            result = runner.invoke(
+                                app,
+                                [
+                                    "run",
+                                    "--port",
+                                    "13128",
+                                    "--log-level",
+                                    "ERROR",
+                                ],
+                            )
+
+        assert result.exit_code == 0
+        assert "Auth: enabled" in result.stdout
+
+    def test_interactive_auth_declined(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                with patch("slimproxy.cli._is_interactive", return_value=True):
+                    with patch(
+                        "slimproxy.cli.typer.confirm", return_value=False
+                    ):
+                        mock_instance = MagicMock()
+                        mock_instance.flags.hostname = "0.0.0.0"
+                        mock_instance.flags.port = "13128"
+                        mock_proxy.return_value.__enter__.return_value = (
+                            mock_instance
+                        )
+
+                        result = runner.invoke(
+                            app,
+                            ["run", "--port", "13128", "--log-level", "ERROR"],
+                        )
+
+        assert result.exit_code == 0
+        assert "Auth: enabled" not in result.stdout
+
+    def test_interactive_auth_empty_rejected(self):
+        with patch("slimproxy.cli._is_interactive", return_value=True):
+            with patch("slimproxy.cli.typer.confirm", return_value=True):
+                with patch(
+                    "slimproxy.cli.typer.prompt",
+                    side_effect=["", ""],
+                ):
+                    result = runner.invoke(
+                        app,
+                        ["run", "--port", "13128", "--log-level", "ERROR"],
+                    )
+
+        assert result.exit_code == 1
+        assert "cannot be empty" in result.stderr
+
+
+class TestHelpers:
+    def test_is_localhost_positive(self):
+        assert _is_localhost("127.0.0.1")
+        assert _is_localhost("::1")
+        assert _is_localhost("localhost")
+
+    def test_is_localhost_negative(self):
+        assert not _is_localhost("0.0.0.0")
+        assert not _is_localhost("192.168.1.1")
+        assert not _is_localhost("example.com")
+
+    def test_is_interactive_not_a_tty(self):
+        assert not _is_interactive()
