@@ -5,7 +5,11 @@ from proxy.http import httpStatusCodes
 from proxy.http.exception import HttpRequestRejected
 from proxy.http.parser import HttpParser
 
-from slimproxy.plugins import FilterByClientIpPlugin, FilterByDestPlugin
+from slimproxy.plugins import (
+    FilterByClientIpPlugin,
+    FilterByDestPlugin,
+    _normalize_host,
+)
 
 
 def make_ip_plugin(
@@ -168,3 +172,84 @@ class TestFilterByDestPlugin:
         request = make_request("test.com")
         result = plugin.before_upstream_connection(request)
         assert result is request
+
+    def test_case_insensitive_both_sides(self):
+        plugin = make_plugin(allow_dests="Example.Com")
+        request = make_request("example.com")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_case_insensitive_request_uppercase(self):
+        plugin = make_plugin(allow_dests="example.com")
+        request = make_request("EXAMPLE.COM")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_trailing_dot_in_allowlist(self):
+        plugin = make_plugin(allow_dests="example.com.")
+        request = make_request("example.com")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_trailing_dot_in_request(self):
+        plugin = make_plugin(allow_dests="example.com")
+        request = make_request("example.com.")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_port_in_request_stripped(self):
+        plugin = make_plugin(allow_dests="example.com")
+        request = make_request("example.com:443")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_all_variations_combined(self):
+        plugin = make_plugin(allow_dests="Example.Com")
+        request = make_request("EXAMPLE.COM.:443")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_ipv6_literal_preserved(self):
+        plugin = make_plugin(allow_dests="[::1]")
+        request = make_request("[::1]")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_idn_normalization_unicode_allowlist(self):
+        plugin = make_plugin(allow_dests="münchen.de")
+        request = make_request("xn--mnchen-3ya.de")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_idn_normalization_ascii_allowlist(self):
+        plugin = make_plugin(allow_dests="xn--mnchen-3ya.de")
+        request = make_request("münchen.de")
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+    def test_none_host_rejected(self):
+        plugin = make_plugin(allow_dests="example.com")
+        request = make_request("does-not-matter")
+        request.host = None
+        with pytest.raises(HttpRequestRejected) as exc:
+            plugin.before_upstream_connection(request)
+        assert exc.value.status_code == httpStatusCodes.FORBIDDEN
+
+    def test_bytes_host_normalized(self):
+        plugin = make_plugin(allow_dests="example.com")
+        request = make_request("does-not-matter")
+        request.host = b"Example.Com"
+        result = plugin.before_upstream_connection(request)
+        assert result is request
+
+
+class TestNormalizeHost:
+    def test_none(self):
+        assert _normalize_host(None) == ""
+
+    def test_bytes_ascii(self):
+        assert _normalize_host(b"Example.Com") == "example.com"
+
+    def test_idna_unicode_error_silently_ignored(self):
+        result = _normalize_host("a" * 64 + ".com")
+        assert result == "a" * 64 + ".com"

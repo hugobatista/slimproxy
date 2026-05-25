@@ -69,6 +69,26 @@ class FilterByClientIpPlugin(HttpProxyBasePlugin):
         return request
 
 
+def _normalize_host(host: str | bytes | None) -> str:
+    if host is None:
+        return ""
+    if isinstance(host, bytes):
+        host = host.decode("ascii", errors="replace")
+    host = host.lower().strip()
+    if host.startswith("["):
+        bracket = host.find("]")
+        if bracket != -1:
+            host = host[: bracket + 1]
+    else:
+        host = host.split(":")[0]
+    host = host.rstrip(".")
+    try:
+        host = host.encode("idna").decode("ascii")
+    except (UnicodeError, ValueError):
+        pass
+    return host
+
+
 class FilterByDestPlugin(HttpProxyBasePlugin):
     """Drop traffic for upstream hosts not in the allowlist."""
 
@@ -78,11 +98,11 @@ class FilterByDestPlugin(HttpProxyBasePlugin):
     ) -> HttpParser | None:
         if self.flags.allow_dests:
             allowed = {
-                h.strip()
+                _normalize_host(h)
                 for h in self.flags.allow_dests.split(",")
                 if h.strip()
             }
-            if request.host not in allowed:
+            if _normalize_host(request.host) not in allowed:
                 raise HttpRequestRejected(
                     status_code=httpStatusCodes.FORBIDDEN,
                     reason=b"Destination not allowed",
