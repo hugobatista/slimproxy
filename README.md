@@ -53,8 +53,12 @@ All options are optional. With no flags, the proxy listens on `0.0.0.0:3128` and
 Configure your client to use it:
 
 ```bash
+# Linux / macOS
 export HTTPS_PROXY=http://myuser:password123@host:3128
-opencode
+# Windows CMD
+set HTTPS_PROXY=http://myuser:password123@host:3128
+# Windows PowerShell
+$env:HTTPS_PROXY="http://myuser:password123@host:3128"
 ```
 
 ### `check` — Detect SSL inspection

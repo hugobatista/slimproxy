@@ -117,10 +117,9 @@ def check(
     ),
 ) -> None:
     """Check if SSL inspection is active for given targets."""
+    cafile = ssl.get_default_verify_paths().openssl_cafile
     typer.echo(f"Python {sys.version}")
-    typer.echo(
-        f"Certificate store: {ssl.get_default_verify_paths().openssl_cafile}",
-    )
+    typer.echo(f"Certificate store: {cafile or '(OS native)'}")
     typer.echo()
 
     for host in targets:
