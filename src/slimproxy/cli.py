@@ -19,6 +19,31 @@ _firewall_hidden = sys.platform != "win32"
 
 _LOCALHOST_HOSTNAMES = frozenset({"127.0.0.1", "::1", "localhost"})
 
+_run_epilog = "\n\n".join([
+    "",
+    "Examples:",
+    "slimproxy run",
+    "slimproxy run --basic-auth user:pass --allow-ips 192.168.1.0/24",
+    "slimproxy run --allow-dests api.opencode.ai",
+    "slimproxy run --port 8888 --log-level DEBUG",
+    "slimproxy run --hostname 127.0.0.1 --port 8888",
+    "slimproxy run --basic-auth user:pass --allow-ips 10.0.0.0/8"
+    " --allow-dests api.opencode.ai",
+])
+if sys.platform == "win32":
+    _run_epilog += "\n\n" + (
+        "slimproxy run --firewall-rule --allow-ips 192.168.100.0/24"
+        " --basic-auth myuser:mypassword"
+    )
+
+_check_epilog = "\n\n".join([
+    "",
+    "Examples:",
+    "slimproxy check api.opencode.ai",
+    "slimproxy check api.opencode.ai api.github.com models.openai.com",
+    "slimproxy check google.com",
+])
+
 
 def _is_localhost(hostname: str) -> bool:
     return hostname in _LOCALHOST_HOSTNAMES
@@ -56,6 +81,7 @@ def _main(
 
 @app.command(
     help=f"Start the forward proxy server (slimproxy v{_APP_VERSION})",
+    epilog=_run_epilog,
 )
 def run(
     hostname: str = typer.Option(
@@ -77,13 +103,15 @@ def run(
         None,
         "--allow-ips",
         help="Comma-separated client CIDRs to allow "
-        "(e.g. 192.168.1.0/24,10.0.0.0/8)",
+        "(e.g. 192.168.1.0/24,10.0.0.0/8). "
+        "When omitted, all IPs are allowed.",
     ),
     allow_dests: str | None = typer.Option(
         None,
         "--allow-dests",
         help="Comma-separated upstream hosts to allow "
-        "(e.g. api.opencode.ai,api.github.com)",
+        "(e.g. api.opencode.ai,api.github.com). "
+        "When omitted, all destinations are allowed.",
     ),
     log_level: str = typer.Option(
         "INFO",
@@ -226,6 +254,7 @@ def run(
         "Check if SSL inspection is active for given targets"
         f" (slimproxy v{_APP_VERSION})"
     ),
+    epilog=_check_epilog,
 )
 def check(
     targets: list[str] = typer.Argument(

@@ -113,6 +113,16 @@ class TestRunCommand:
         assert result.exit_code == 0
         assert "--firewall-rule" not in clean
 
+    def test_run_help_shows_firewall_example_on_windows(self):
+        with patch("sys.platform", "win32"):
+            import slimproxy.cli as cli_mod
+
+            importlib.reload(cli_mod)
+            result = runner.invoke(cli_mod.app, ["run", "--help"])
+            clean = _strip_ansi(result.stdout)
+            assert "firewall-rule" in clean
+        importlib.reload(__import__("slimproxy").cli)
+
     def test_firewall_rule_ignored_on_non_windows(self):
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
             with patch("slimproxy.cli.Proxy") as mock_proxy:
