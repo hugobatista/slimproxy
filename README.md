@@ -1,10 +1,21 @@
 [![GitHub Tag](https://img.shields.io/github/v/tag/hugobatista/slimproxy?logo=github&label=latest)](https://go.hugobatista.com/gh/slimproxy/releases)
 [![Lint](https://img.shields.io/github/actions/workflow/status/hugobatista/slimproxy/lint.yml?label=Lint)](https://go.hugobatista.com/gh/slimproxy/actions/workflows/lint.yml)
 [![Test](https://img.shields.io/github/actions/workflow/status/hugobatista/slimproxy/test.yml?label=Test)](https://go.hugobatista.com/gh/slimproxy/actions/workflows/test.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/slimproxy.svg)](https://pypi.org/project/slimproxy)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slimproxy.svg)](https://pypi.org/project/slimproxy)
+[![PyPI - License](https://img.shields.io/pypi/l/slimproxy.svg)](https://pypi.org/project/slimproxy)
 
-Forward proxy CLI built on `proxy.py` with optional client IP allowlisting, Basic auth, and destination host filtering.
+A lightweight forward proxy CLI built on `proxy.py` — deploy anywhere Python runs. Useful when you need a quick proxy on a host where squid is overkill or unavailable (no Docker, Windows host, locked-down desktop, etc.) and you want to forward requests through that host.
+
+Typical scenario: your enterprise-managed desktop has a forward proxy that intercepts and inspects traffic to certain endpoints (AI APIs, for example). Deploy slimproxy on a second, unmanaged machine on the same network, point your tools at it, and bypass the inspection.
 
 ## Installation
+
+```bash
+pip install slimproxy
+```
+
+Or from source:
 
 ```bash
 uv sync
@@ -21,7 +32,7 @@ docker build -t slimproxy .
 ### `run` — Start the proxy server
 
 ```bash
-uv run slimproxy run \
+slimproxy run \
   --port 3128 \
   --basic-auth myuser:password123 \
   --allow-ips "192.168.1.0/24,10.0.0.0/8" \
@@ -40,7 +51,7 @@ opencode
 ### `check` — Detect SSL inspection
 
 ```bash
-uv run slimproxy check api.opencode.ai api.github.com
+slimproxy check api.opencode.ai api.github.com
 ```
 
 Connects to each target over TLS and prints the certificate issuer. If the issuer is your company, SSL inspection is active.
