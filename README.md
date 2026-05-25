@@ -110,6 +110,10 @@ omitted, the corresponding access is unrestricted:
 
 The proxy speaks vanilla HTTP CONNECT — no TLS interception, no decryption. The end-to-end TLS handshake happens between the client and the target server.
 
+Note: When `--basic-auth` is used on a non-localhost interface, credentials
+are transmitted in cleartext HTTP and can be intercepted by anyone on the
+network.
+
 ### Windows Firewall
 
 On Windows, pass `--firewall-rule` to auto-add an inbound firewall rule for the proxy port:

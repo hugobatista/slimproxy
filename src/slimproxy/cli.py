@@ -209,6 +209,14 @@ def run(
                     raise typer.Exit(code=1)
                 basic_auth = f"{username}:{password}"
 
+    if basic_auth and not _is_localhost(hostname):
+        typer.secho(
+            "WARNING: Basic Auth credentials are sent over cleartext HTTP "
+            "and can be intercepted by anyone on the network.",
+            err=True,
+            fg=typer.colors.YELLOW,
+        )
+
     proxy_args: list[str] = [
         "--hostname",
         hostname,

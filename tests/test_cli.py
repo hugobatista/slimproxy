@@ -341,7 +341,7 @@ class TestRunCommand:
         with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
             with patch("slimproxy.cli.Proxy") as mock_proxy:
                 mock_instance = MagicMock()
-                mock_instance.flags.hostname = "0.0.0.0"
+                mock_instance.flags.hostname = "127.0.0.1"
                 mock_instance.flags.port = "13128"
                 mock_proxy.return_value.__enter__.return_value = mock_instance
 
@@ -351,6 +351,8 @@ class TestRunCommand:
                         "run",
                         "--basic-auth",
                         "user:pass",
+                        "--hostname",
+                        "127.0.0.1",
                         "--port",
                         "13128",
                         "--log-level",
