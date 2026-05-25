@@ -141,6 +141,14 @@ def run(
                 err=True,
             )
 
+    if sys.platform == "win32" and not _is_localhost(hostname) and not firewall_rule:
+        typer.echo(
+            "WARNING: Ensure Windows Firewall allows inbound TCP traffic on "
+            f"port {port}. "
+            "Use --firewall-rule to add a rule automatically.",
+            err=True,
+        )
+
     try:
         with Proxy(input_args=proxy_args) as proxy:
             typer.echo(

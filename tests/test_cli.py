@@ -148,6 +148,83 @@ class TestRunCommand:
         mock_ensure.assert_called_once_with(3128)
         mock_remove.assert_called_once_with(3128)
 
+    def test_windows_non_localhost_firewall_warning(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                with patch("sys.platform", "win32"):
+                    mock_instance = MagicMock()
+                    mock_instance.flags.hostname = "0.0.0.0"
+                    mock_instance.flags.port = "13128"
+                    mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                    result = runner.invoke(
+                        app,
+                        [
+                            "run",
+                            "--port",
+                            "13128",
+                            "--log-level",
+                            "ERROR",
+                        ],
+                    )
+
+        assert result.exit_code == 0
+        assert "WARNING" in result.stderr
+        assert "firewall" in result.stderr.lower()
+
+    def test_windows_with_firewall_no_warning(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                with patch("sys.platform", "win32"):
+                    with patch("slimproxy.cli.ensure_firewall_rule"):
+                        with patch("slimproxy.cli.remove_firewall_rule"):
+                            mock_instance = MagicMock()
+                            mock_instance.flags.hostname = "0.0.0.0"
+                            mock_instance.flags.port = "13128"
+                            mock_proxy.return_value.__enter__.return_value = (
+                                mock_instance
+                            )
+
+                            result = runner.invoke(
+                                app,
+                                [
+                                    "run",
+                                    "--firewall-rule",
+                                    "--port",
+                                    "13128",
+                                    "--log-level",
+                                    "ERROR",
+                                ],
+                            )
+
+        assert result.exit_code == 0
+        assert "Ensure Windows Firewall allows" not in result.stderr
+
+    def test_windows_localhost_no_firewall_no_warning(self):
+        with patch("slimproxy.cli.sleep_loop", side_effect=KeyboardInterrupt()):
+            with patch("slimproxy.cli.Proxy") as mock_proxy:
+                with patch("sys.platform", "win32"):
+                    mock_instance = MagicMock()
+                    mock_instance.flags.hostname = "127.0.0.1"
+                    mock_instance.flags.port = "13128"
+                    mock_proxy.return_value.__enter__.return_value = mock_instance
+
+                    result = runner.invoke(
+                        app,
+                        [
+                            "run",
+                            "--hostname",
+                            "127.0.0.1",
+                            "--port",
+                            "13128",
+                            "--log-level",
+                            "ERROR",
+                        ],
+                    )
+
+        assert result.exit_code == 0
+        assert "WARNING" not in result.stderr
+
     @patch("slimproxy.cli.Proxy")
     def test_error_handling(self, mock_proxy):
         mock_proxy.return_value.__enter__.side_effect = RuntimeError(
