@@ -38,10 +38,13 @@ Or run directly without installing:
 uvx slimproxy
 ```
 
-Or from source:
+Or from source (clone + run):
 
 ```bash
+git clone https://github.com/hugobatista/slimproxy.git
+cd slimproxy
 uv sync
+uv run slimproxy run
 ```
 
 Or via Docker:
