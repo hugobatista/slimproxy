@@ -5,7 +5,7 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/slimproxy.svg)](https://pypi.org/project/slimproxy)
 [![PyPI - License](https://img.shields.io/pypi/l/slimproxy.svg)](https://pypi.org/project/slimproxy)
 
-A lightweight forward proxy CLI built on `proxy.py` — deploy anywhere Python runs.
+🛡️ **slimproxy** — A lightweight forward proxy CLI built on `proxy.py` — deploy anywhere Python runs.
 
 **The problem**: Your enterprise-managed desktop sits behind a corporate forward proxy that intercepts and inspects TLS traffic to certain endpoints (AI APIs, for example). You can't control the proxy settings or install software — the machine is locked down.
 
