@@ -194,6 +194,11 @@ def run(
             )
             if basic_auth:
                 typer.secho("  Auth: enabled", fg=typer.colors.CYAN)
+            if firewall_active:
+                msg = "  Firewall: rule added"
+                if allow_ips:
+                    msg += f", restricted to {allow_ips}"
+                typer.secho(msg, fg=typer.colors.CYAN)
             if allow_ips:
                 typer.secho(
                     f"  Client IPs allowed: {allow_ips}",
