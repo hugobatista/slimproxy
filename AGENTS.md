@@ -15,7 +15,7 @@ uv run ruff format --check src/ tests/ # format check
 uv run ruff format src/ tests/         # format
 uv run mypy src --strict --no-incremental  # typecheck
 uv run pytest src tests --cov=src/slimproxy --cov-fail-under=100 -v  # test
-uv run hatch run check                 # lint + format-check + test + typecheck
+uv run hatch run validate              # lint + format-check + test + typecheck (always run this before committing)
 uv build --no-dev                      # build wheel
 ```
 
