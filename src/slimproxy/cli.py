@@ -296,8 +296,7 @@ def _show_wizard_summary(
 app = typer.Typer(
     name="slimproxy",
     help=(
-        "Slim forward proxy with optional IP, auth, and destination"
-        f" filtering. (v{_APP_VERSION})"
+        "Slim forward proxy with optional IP, auth, and destination filtering."
     ),
 )
 
@@ -320,7 +319,7 @@ def _main(
 
 
 @app.command(
-    help=f"Start the forward proxy server (slimproxy v{_APP_VERSION})",
+    help="Start the forward proxy server",
     epilog=_run_epilog,
 )
 def run(
@@ -382,6 +381,7 @@ def run(
     ),
 ) -> None:
     """Start the forward proxy server."""
+    typer.secho(f"slimproxy v{_APP_VERSION}", fg=typer.colors.BLUE, bold=True)
     if wizard:
         if not _is_interactive():
             typer.secho(
@@ -553,10 +553,7 @@ def run(
 
 
 @app.command(
-    help=(
-        "Check if SSL inspection is active for given targets"
-        f" (slimproxy v{_APP_VERSION})"
-    ),
+    help=("Check if SSL inspection is active for given targets"),
     epilog=_check_epilog,
 )
 def check(
@@ -566,6 +563,7 @@ def check(
     ),
 ) -> None:
     """Check if SSL inspection is active for given targets."""
+    typer.secho(f"slimproxy v{_APP_VERSION}", fg=typer.colors.BLUE, bold=True)
     cafile = ssl.get_default_verify_paths().openssl_cafile
     typer.secho(f"Python {sys.version}", fg=typer.colors.BLUE, bold=True)
     typer.secho(
