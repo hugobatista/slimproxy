@@ -67,6 +67,12 @@ slimproxy run \
 
 All options are optional. With no flags, the proxy listens on `0.0.0.0:3128` and forwards everything without auth or filtering.
 
+Use `--wizard` for an interactive guided setup that prompts for each option:
+
+```bash
+slimproxy run --wizard
+```
+
 Configure your client to use it:
 
 ```bash
@@ -97,6 +103,7 @@ Connects to each target over TLS and prints the certificate issuer. If the issue
 | `--allow-dests` | *(none)* | Comma-separated upstream hosts (e.g. `api.opencode.ai`). When omitted, all destinations are allowed. |
 | `--log-level` | `INFO` | Log level |
 | `--timeout` | `10` | Connection timeout in seconds |
+| `--wizard` | *(off)* | Guided interactive setup — prompts for hostname, port, auth, IP/dest allowlists, log level, and timeout. On Windows, also handles firewall elevation. Requires an interactive terminal. |
 | `--firewall-rule` | *(off)* | Add Windows Firewall inbound rule for the proxy port (Windows only, requires admin) |
 
 ## Security
