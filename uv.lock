@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-25T14:00:28.093798621Z"
+exclude-newer = "2026-04-27T14:50:34.096370864Z"
 exclude-newer-span = "P30D"
 
 [[package]]
@@ -447,15 +447,15 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "proxy-py", specifier = ">=2.4.0,<3.0.0" },
-    { name = "typer", specifier = ">=0.12.0,<1.0.0" },
+    { name = "proxy-py", specifier = ">=2.4.0" },
+    { name = "typer", specifier = ">=0.12.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.11.0" },
-    { name = "pytest", specifier = ">=8.0.0,<9.0.0" },
-    { name = "pytest-cov", specifier = ">=6.0.0,<7.0.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.6.0" },
 ]
 
