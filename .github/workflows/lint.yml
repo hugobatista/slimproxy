@@ -37,10 +37,13 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
 
       - name: Sync dependencies
-        run: uv sync --group dev
+        run: uv sync --frozen --only-group lint
 
-      - name: Run ruff check
-        run: uv run ruff check src/ tests/
+      - name: Lint check
+        run: uv run hatch run lint-check
 
-      - name: Run ruff format check
-        run: uv run ruff format --check src/ tests/
+      - name: Format check
+        run: uv run hatch run format-check
+
+      - name: Type check
+        run: uv run hatch run typecheck

@@ -37,7 +37,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
 
       - name: Sync dependencies
-        run: uv sync --group dev
+        run: uv sync --frozen --no-default-groups --group test
 
-      - name: Run pytest
-        run: uv run pytest --cov=src/slimproxy
+      - name: Run tests
+        run: uv run hatch run test
