@@ -927,12 +927,10 @@ dev = [
     { name = "ruff" },
 ]
 lint = [
-    { name = "hatch" },
     { name = "mypy" },
     { name = "ruff" },
 ]
 test = [
-    { name = "hatch" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -952,12 +950,10 @@ dev = [
     { name = "ruff", specifier = ">=0.6.0" },
 ]
 lint = [
-    { name = "hatch", specifier = ">=1.16.5" },
     { name = "mypy", specifier = ">=1.11.0" },
     { name = "ruff", specifier = ">=0.6.0" },
 ]
 test = [
-    { name = "hatch", specifier = ">=1.16.5" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
 ]

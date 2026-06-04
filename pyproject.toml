@@ -33,21 +33,21 @@ slimproxy = "slimproxy.cli:app"
 
 [dependency-groups]
 lint = [
-    "hatch>=1.16.5",
     "mypy>=1.11.0",
     "ruff>=0.6.0",
 ]
 test = [
-    "hatch>=1.16.5",
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
 ]
 dev = [
+    "hatch>=1.16.5",
     {include-group = "lint"},
     {include-group = "test"},
 ]
 
 [tool.uv]
+required-version = "0.11.18"
 exclude-newer = "30 days"
 
 [build-system]
@@ -105,3 +105,6 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

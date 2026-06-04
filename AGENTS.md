@@ -9,12 +9,12 @@ Single package at `src/slimproxy/`. Entrypoint: `slimproxy.cli:app` (Typer).
 ## Commands
 
 ```bash
-uv sync --group dev                    # install all deps
+uv sync                    # install all deps
 uv run ruff check src/ tests/          # lint
 uv run ruff format --check src/ tests/ # format check
 uv run ruff format src/ tests/         # format
-uv run mypy src --strict --no-incremental  # typecheck
-uv run pytest src tests --cov=src/slimproxy --cov-fail-under=100 -v  # test
+uv run mypy  # typecheck
+uv run pytest  # test
 uv run hatch run validate              # lint + format-check + test + typecheck (always run this before committing)
 uv build --no-dev                      # build wheel
 ```
