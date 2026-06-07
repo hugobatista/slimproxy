@@ -1,6 +1,6 @@
 [project]
 name = "slimproxy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Slim forward proxy with IP, auth, and destination filtering"
 readme = "README.md"
 license = "MIT"
@@ -50,6 +50,11 @@ dev = [
 required-version = "0.11.18"
 exclude-newer = "30 days"
 
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -72,7 +77,7 @@ validate = ["lint", "format", "test", "typecheck"]
 check = ["lint-check", "format-check", "test", "typecheck"]
 
 [tool.pytest.ini_options]
-addopts = "-v --cov --cov-report=term-missing"
+addopts = "--tb=short --strict-markers --cov --cov-report=term-missing"
 pythonpath = ["src"]
 testpaths = ["tests"]
 
@@ -84,7 +89,13 @@ omit = ["*/__init__.py", "*/__main__.py"]
 show_missing = true
 skip_covered = false
 fail_under = 100
-exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
 
 [tool.mypy]
 python_version = "3.11"

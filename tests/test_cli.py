@@ -8,6 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 from slimproxy.cli import (
+    _APP_VERSION,
     _format_listen_url,
     _get_available_addresses,
     _get_listen_addresses,
@@ -461,28 +462,28 @@ class TestVersion:
     def test_version_flag(self):
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert result.stdout.strip() == "0.1.0"
+        assert result.stdout.strip() == _APP_VERSION
 
     def test_version_in_help(self):
         result = runner.invoke(app)
         assert result.exit_code == 0
-        assert "0.1.0" in result.stdout
+        assert _APP_VERSION in result.stdout
         assert "slimproxy" in result.stdout.splitlines()[0]
 
     def test_version_not_in_run_help(self):
         result = runner.invoke(app, ["run", "--help"])
         assert result.exit_code == 0
-        assert "0.1.0" not in result.stdout
+        assert _APP_VERSION not in result.stdout
 
     def test_version_not_in_check_help(self):
         result = runner.invoke(app, ["check", "--help"])
         assert result.exit_code == 0
-        assert "0.1.0" not in result.stdout
+        assert _APP_VERSION not in result.stdout
 
     def test_version_not_in_help_flag(self):
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "0.1.0" not in result.stdout
+        assert _APP_VERSION not in result.stdout
 
     def test_version_dev_fallback(self):
         import slimproxy.cli as cli_mod
